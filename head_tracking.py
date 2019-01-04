@@ -64,6 +64,11 @@ def draw_face(img, bbox, txt):
 
     return img
 
+def display_frame(frame, face, txt):
+    displayImg = draw_face(frame, face, txt)
+    cv2.imshow("frame", imutils.resize(displayImg, width=displayWidth))
+    cv2.waitKey(1)
+
 
 if tracker_type == 'BOOSTING':
     tracker = cv2.TrackerBoosting_create()
@@ -102,9 +107,7 @@ while hasFrame:
 
         face = faceBoxes[0]
         head = (face[0], face[1], int(face[2]*1.3), int(face[3]*1.3))
-        displayImg = draw_face(frame, head, "")
-        cv2.imshow("frame", imutils.resize(displayImg, width=displayWidth))
-        cv2.waitKey(1)
+        display_frame(frame, head, "")
 
         ok = tracker.init(frame, head)
         trackStatus = True
@@ -114,9 +117,7 @@ while hasFrame:
             trackStatus, head = tracker.update(frame)
 
             txtStatus = "tracking"
-            displayImg = draw_face(frame, head, txtStatus)
-            cv2.imshow("frame", imutils.resize(displayImg, width=displayWidth))
-            cv2.waitKey(1)
+            display_frame(frame, head, txtStatus)
 
         facebox = head
         txtStatus = "lost..."
@@ -125,7 +126,5 @@ while hasFrame:
         facebox = None
         txtStatus = "No face"
 
-    displayImg = draw_face(frame, facebox, txtStatus)
-    cv2.imshow("frame", imutils.resize(displayImg, width=displayWidth))
-    cv2.waitKey(1)
+    display_frame(frame, facebox, txtStatus)
 

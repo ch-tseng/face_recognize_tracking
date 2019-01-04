@@ -9,17 +9,18 @@ import imutils
 from scipy.spatial import distance
 from keras.models import load_model
 
-video_file = "/media/sf_VMshare/comein3.mp4"
+video_file = "/media/sf_VMshare/comein8.mp4"
 face_detect = "mtcnn"
 displayWidth = 500
-min_faceSzie = (30, 30)
+min_faceSzie = (40, 40)
 tracker_type = "MEDIANFLOW"  #BOOSTING, CSRT, TLD, MIL, KCF, MEDIANFLOW, MOSSE
 
 valid = "valid/"
 min_score = 0.90
 image_size = 160
 giveupScore = 0.8
-black_padding_width = 0  #add padding width for the face area
+face_extend_head_ratio = 1.5
+black_padding_width = 2  #add padding width for the face area
 dataset_file = "officedoor.h5"
 model_path = 'model/facenet_keras.h5'
 model = load_model(model_path)
@@ -127,10 +128,15 @@ def process(face, img, margin):
         aligned = preProcess(aligned)
 
         return aligned, (x,y,w,h)
+    else:
+        return None, None
 
 def face2name(face, img, faceEMBS, faceNames):
     imgFace, bbox = process(face, img, black_padding_width)
     #print (imgFace)
+    if(imgFace is None):
+        return None, None, None
+
     embs = l2_normalize(np.concatenate(model.predict(imgFace)))
 
     smallist_id = 0
@@ -150,6 +156,11 @@ def face2name(face, img, faceEMBS, faceNames):
 
     print(faceNames[smallist_id].decode(), smallist_embs)
     return smallist_id, faceNames[smallist_id].decode(), smallist_embs
+
+def displayFrame(frame, head, txtStatus):
+    displayImg = draw_face(frame, head, txtStatus)
+    cv2.imshow("frame", imutils.resize(displayImg, width=displayWidth))
+    cv2.waitKey(1)
 
 if tracker_type == 'BOOSTING':
     tracker = cv2.TrackerBoosting_create()
@@ -176,6 +187,8 @@ width = VIDEO_IN.get(cv2.CAP_PROP_FRAME_WIDTH)   # float
 height = VIDEO_IN.get(cv2.CAP_PROP_FRAME_HEIGHT) # float
 
 hasFrame = True
+facebox = None
+txtStatus = None
 while hasFrame:
     hasFrame, frame = VIDEO_IN.read()
     if not hasFrame:
@@ -189,31 +202,23 @@ while hasFrame:
         face = faceBoxes[0]
         valid_id, valid_name, score = face2name( face, frame, valid_embs, valid_names)
 
-        head = (face[0], face[1], int(face[2]*1.3), int(face[3]*1.3))
-        displayImg = draw_face(frame, head, valid_name)
-        cv2.imshow("frame", imutils.resize(displayImg, width=displayWidth))
-        cv2.waitKey(1)
+        if(valid_id is not None):
+            head = (face[0], face[1], int(face[2]*face_extend_head_ratio), int(face[3]*face_extend_head_ratio))
+            displayFrame(frame, head, valid_name)
 
-        ok = tracker.init(frame, head)
-        trackStatus = True
+            ok = tracker.init(frame, head)
+            trackStatus = True
 
-        while trackStatus is True:
-            hasFrame, frame = VIDEO_IN.read()
-            trackStatus, head = tracker.update(frame)
+            while trackStatus is True:
+                hasFrame, frame = VIDEO_IN.read()
+                trackStatus, head = tracker.update(frame)
+                displayFrame(frame, head, valid_name)
 
+            facebox = head
             txtStatus = valid_name
-            displayImg = draw_face(frame, head, txtStatus)
-            cv2.imshow("frame", imutils.resize(displayImg, width=displayWidth))
-            cv2.waitKey(1)
-
-        facebox = head
-        txtStatus = valid_name
 
     else:
         facebox = None
         txtStatus = "No face"
 
-    displayImg = draw_face(frame, facebox, txtStatus)
-    cv2.imshow("frame", imutils.resize(displayImg, width=displayWidth))
-    cv2.waitKey(1)
-
+    displayFrame(frame, None, txtStatus)
